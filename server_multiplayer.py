@@ -596,17 +596,22 @@ def handle_trade(data):
         broadcast_state()
 
 # --- 静态文件服务 ---
+import os
+
+# 获取当前脚本所在目录的绝对路径
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 @app.route('/')
 def index():
-    return send_from_directory('.', 'index.html')
+    return send_from_directory(BASE_DIR, 'index.html')
 
 @app.route('/admin')
 def admin():
-    return send_from_directory('.', 'admin.html')
+    return send_from_directory(BASE_DIR, 'admin.html')
 
 @app.route('/<path:path>')
 def serve_static(path):
-    return send_from_directory('.', path)
+    return send_from_directory(BASE_DIR, path)
 
 if __name__ == '__main__':
     import os
