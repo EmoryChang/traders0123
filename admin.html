@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理员控制台 - 模拟交易平台</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        
+        .subtitle {
+            color: #666;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .login-section {
+            margin-bottom: 30px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: bold;
+        }
+        
+        input[type="password"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        input[type="password"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 10px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .status-panel {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .status-item:last-child {
+            border-bottom: none;
+        }
+        
+        .status-label {
+            color: #666;
+            font-weight: bold;
+        }
+        
+        .status-value {
+            color: #333;
+        }
+        
+        .status-value.running {
+            color: #28a745;
+            font-weight: bold;
+        }
+        
+        .status-value.waiting {
+            color: #ffc107;
+            font-weight: bold;
+        }
+        
+        .status-value.countdown {
+            color: #dc3545;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        
+        .alert {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .alert-danger {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .control-section {
+            display: none;
+        }
+        
+        .control-section.active {
+            display: block;
+        }
+        
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        
+        .info-box p {
+            margin: 5px 0;
+            color: #1976D2;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 管理员控制台</h1>
+        <p class="subtitle">模拟交易平台管理</p>
+        
+        <div id="alert" class="alert"></div>
+        
+        <!-- 登录区域 -->
+        <div id="login-section" class="login-section">
+            <div class="form-group">
+                <label for="password">管理员密码</label>
+                <input type="password" id="password" placeholder="请输入管理员密码" autofocus>
+            </div>
+            <button class="btn btn-primary" onclick="adminLogin()">登录</button>
+        </div>
+        
+        <!-- 控制区域 -->
+        <div id="control-section" class="control-section">
+            <div class="info-box">
+                <p><strong>当前状态：</strong><span id="game-status">等待中</span></p>
+                <p><strong>在线用户：</strong><span id="online-count">0</span> 人</p>
+                <p><strong>游戏时间：</strong><span id="time-left">280</span> 秒</p>
+            </div>
+            
+            <div class="status-panel">
+                <div class="status-item">
+                    <span class="status-label">游戏状态</span>
+                    <span class="status-value" id="status-display">等待开始</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">倒计时</span>
+                    <span class="status-value" id="countdown-display">-</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">市场价格</span>
+                    <span class="status-value" id="market-price">500</span>
+                </div>
+            </div>
+            
+            <div style="margin-top: 20px;">
+                <button class="btn btn-success" id="btn-start" onclick="startGame()">开始游戏</button>
+                <button class="btn btn-danger" id="btn-reset" onclick="resetGame()">重置游戏</button>
+                <button class="btn btn-primary" id="btn-export" onclick="exportData()" style="background: #17a2b8;">导出数据</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let socket = null;
+        let isAdmin = false;
+        
+        function showAlert(message, type) {
+            const alert = document.getElementById('alert');
+            alert.textContent = message;
+            alert.className = `alert alert-${type}`;
+            alert.style.display = 'block';
+            setTimeout(() => {
+                alert.style.display = 'none';
+            }, 3000);
+        }
+        
+        function initSocket() {
+            socket = io();
+            
+            socket.on('connect', () => {
+                console.log('已连接到服务器');
+            });
+            
+            socket.on('admin_login_success', () => {
+                isAdmin = true;
+                document.getElementById('login-section').style.display = 'none';
+                document.getElementById('control-section').classList.add('active');
+                showAlert('管理员登录成功', 'success');
+            });
+            
+            socket.on('admin_login_failed', (data) => {
+                showAlert(data.message || '密码错误', 'danger');
+            });
+            
+            socket.on('state_update', (state) => {
+                updateStatus(state);
+            });
+            
+            socket.on('admin_reset_success', () => {
+                showAlert('游戏已重置', 'success');
+            });
+            
+            socket.on('error', (data) => {
+                showAlert(data.message || '操作失败', 'danger');
+            });
+            
+            socket.on('admin_export_data', (data) => {
+                handleExportData(data);
+            });
+        }
+        
+        function adminLogin() {
+            const password = document.getElementById('password').value;
+            if (!password) {
+                showAlert('请输入密码', 'danger');
+                return;
+            }
+            
+            if (socket && socket.connected) {
+                socket.emit('admin_login', { password: password });
+            } else {
+                showAlert('未连接到服务器', 'danger');
+            }
+        }
+        
+        function startGame() {
+            if (!isAdmin) {
+                showAlert('请先登录', 'danger');
+                return;
+            }
+            
+            socket.emit('admin_start_game');
+        }
+        
+        function resetGame() {
+            if (!isAdmin) {
+                showAlert('请先登录', 'danger');
+                return;
+            }
+            
+            if (confirm('确定要重置游戏吗？这将清除所有用户的交易数据。')) {
+                socket.emit('admin_reset_game');
+            }
+        }
+        
+        function exportData() {
+            if (!isAdmin) {
+                showAlert('请先登录', 'danger');
+                return;
+            }
+            
+            socket.emit('admin_export_data');
+            showAlert('正在导出数据...', 'success');
+        }
+        
+        function handleExportData(data) {
+            // 生成CSV格式的数据
+            let csvContent = '';
+            
+            // 游戏信息
+            csvContent += '游戏信息\n';
+            csvContent += `开始时间,${data.game_info.start_time || 'N/A'}\n`;
+            csvContent += `游戏时长,${data.game_info.duration}秒\n`;
+            csvContent += `最终内在价值,${data.game_info.final_fundamental_value}\n`;
+            csvContent += `游戏状态,${data.game_info.is_completed ? '已完成' : '进行中'}\n`;
+            csvContent += '\n';
+            
+            // 用户汇总数据
+            csvContent += '用户汇总数据\n';
+            csvContent += '用户ID,昵称,总买入,总卖出,净交易,平均成本,最终持仓,最终现金,最终财富\n';
+            data.users.forEach(user => {
+                const stats = user.final_stats;
+                csvContent += `${user.user_id},${user.name},${stats.total_buys},${stats.total_sells},${stats.net_transactions},${stats.avg_price.toFixed(3)},${stats.demand},${stats.cash.toFixed(2)},${stats.final_wealth.toFixed(2)}\n`;
+            });
+            csvContent += '\n';
+            
+            // 详细交易记录
+            csvContent += '详细交易记录\n';
+            csvContent += '用户ID,昵称,游戏时间(秒),实际时间,操作,数量,执行价格,市场价格,持仓前,持仓后\n';
+            data.users.forEach(user => {
+                user.trade_history.forEach(trade => {
+                    csvContent += `${user.user_id},${user.name},${trade.time},${trade.timestamp},${trade.action},${trade.quantity},${trade.price},${trade.market_price},${trade.demand_before},${trade.demand_after}\n`;
+                });
+            });
+            
+            // 下载CSV文件
+            const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', `交易数据_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            showAlert('数据导出成功！', 'success');
+        }
+        
+        function updateStatus(state) {
+            document.getElementById('online-count').textContent = state.online_count || 0;
+            document.getElementById('time-left').textContent = state.time_left || 280;
+            document.getElementById('market-price').textContent = state.market_price || 500;
+            
+            const statusDisplay = document.getElementById('status-display');
+            const countdownDisplay = document.getElementById('countdown-display');
+            const btnStart = document.getElementById('btn-start');
+            
+            if (state.is_running) {
+                statusDisplay.textContent = '游戏中';
+                statusDisplay.className = 'status-value running';
+                countdownDisplay.textContent = '-';
+                btnStart.disabled = true;
+            } else if (state.is_countdown) {
+                statusDisplay.textContent = '倒计时中';
+                statusDisplay.className = 'status-value countdown';
+                countdownDisplay.textContent = state.countdown || 0;
+                btnStart.disabled = true;
+            } else {
+                statusDisplay.textContent = '等待开始';
+                statusDisplay.className = 'status-value waiting';
+                countdownDisplay.textContent = '-';
+                btnStart.disabled = false;
+            }
+            
+            document.getElementById('game-status').textContent = 
+                state.is_running ? '游戏中' : 
+                state.is_countdown ? `倒计时 ${state.countdown}秒` : 
+                '等待开始';
+        }
+        
+        // 支持回车键登录
+        document.getElementById('password').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                adminLogin();
+            }
+        });
+        
+        // 初始化
+        initSocket();
+    </script>
+</body>
+</html>
